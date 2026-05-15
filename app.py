@@ -1,3 +1,5 @@
+import os
+
 import streamlit as st
 from openai import OpenAI
 
@@ -63,7 +65,14 @@ Requirements:
 
 Nice to have: dbt, Kafka, Spark, ML pipeline experience."""
 
-client = OpenAI()
+def get_openai_client():
+    api_key = st.secrets.get("OPENAI_API_KEY") if hasattr(st, "secrets") else None
+    if not api_key:
+        api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        st.error("Missing OpenAI API key. Add it to .streamlit/secrets.toml or set OPENAI_API_KEY.")
+        st.stop()
+    return OpenAI(api_key=api_key)
 
 st.set_page_config(page_title="AI Career Mentor", layout="wide")
 st.title("AI Career Mentor")
@@ -81,6 +90,7 @@ if st.button("Analyze", type="primary"):
     else:
         with st.spinner("Analyzing..."):
             try:
+                client = get_openai_client()
                 response = client.chat.completions.create(
                     model="gpt-5-mini",
                     messages=[

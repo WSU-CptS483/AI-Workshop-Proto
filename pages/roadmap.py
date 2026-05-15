@@ -122,8 +122,9 @@ st.markdown(MERIDIAN_CSS, unsafe_allow_html=True)
 
 with st.sidebar:
     st.markdown("**Meridian**")
-    st.page_link("app.py",               label="Home",              icon="🏠")
-    st.page_link("pages/roadmap.py",      label="Learning Roadmap",  icon="📚")
+    st.page_link("app.py",             label="Home",             icon="🏠")
+    st.page_link("pages/roadmap.py",   label="Learning Roadmap", icon="📚")
+    st.page_link("pages/interview.py", label="Mock Interview",   icon="🎤")
 
 st.title("Learning Roadmap")
 st.caption("A personalized 4-week plan to close your skill gaps.")

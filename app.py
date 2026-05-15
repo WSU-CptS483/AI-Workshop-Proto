@@ -218,8 +218,9 @@ st.markdown(MERIDIAN_CSS, unsafe_allow_html=True)
 
 with st.sidebar:
     st.markdown("**Meridian**")
-    st.page_link("app.py",           label="Home",             icon="🏠")
-    st.page_link("pages/roadmap.py", label="Learning Roadmap", icon="📚")
+    st.page_link("app.py",             label="Home",             icon="🏠")
+    st.page_link("pages/roadmap.py",   label="Learning Roadmap", icon="📚")
+    st.page_link("pages/interview.py", label="Mock Interview",   icon="🎤")
 
 st.title("AI Career Mentor")
 st.caption("Paste a resume and a job description — get a match score, skill gaps, and interview prep.")
@@ -257,7 +258,7 @@ if st.button("Analyze", type="primary"):
                 raw = response.choices[0].message.content
                 sections, order = parse_sections(raw)
                 gaps = extract_gaps(sections)
-                st.session_state.results = {"raw": raw, "sections": sections, "order": order, "gaps": gaps}
+                st.session_state.results = {"raw": raw, "sections": sections, "order": order, "gaps": gaps, "jd": jd}
             except Exception as e:
                 st.error(f"OpenAI API error: {e}")
 

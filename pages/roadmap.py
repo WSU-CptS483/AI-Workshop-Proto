@@ -190,8 +190,9 @@ components.html(
      transition:background .15s;}}
 #cp:hover{{background:#1B3A5C;}}
 </style>
+<script>const ROADMAP_TEXT = {js_text};</script>
 <button id="cp" onclick="
-  navigator.clipboard.writeText({js_text});
+  navigator.clipboard.writeText(ROADMAP_TEXT);
   this.innerText='Copied!';
   setTimeout(()=>this.innerText='Copy roadmap as text',2000);
 ">Copy roadmap as text</button>""",

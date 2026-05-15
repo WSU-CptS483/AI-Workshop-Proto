@@ -157,8 +157,8 @@ with st.expander(f"Addressing {len(gaps)} skill gap(s)", expanded=False):
         st.markdown(f"• {g}")
 
 if st.button("Regenerate roadmap", type="secondary"):
-    del st.session_state["roadmap"]
-    del st.session_state["roadmap_for"]
+    st.session_state.pop("roadmap", None)
+    st.session_state.pop("roadmap_for", None)
     st.rerun()
 
 st.markdown("---")

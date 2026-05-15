@@ -26,6 +26,16 @@ A score from 1-10 with one sentence explaining it.
 
 Be specific, direct, and encouraging. Do not summarize the resume or JD."""
 
+INTERVIEW_SYSTEM_PROMPT = """You are a mock interviewer. Use the resume and job description context to tailor questions.
+Ask one question at a time, wait for the user's answer, then follow up with a harder or deeper question.
+Keep questions concise and job-agnostic unless the resume suggests a clear focus area.
+Resume context:
+{resume}
+
+Job description context:
+{job_description}
+"""
+
 SAMPLE_RESUME = """Alex Chen
 alex.chen@email.com | github.com/alexchen
 
@@ -127,7 +137,10 @@ KNOWN_SECTIONS = set(SECTION_META.keys())
 
 
 def get_openai_client():
-    api_key = st.secrets.get("OPENAI_API_KEY") if hasattr(st, "secrets") else None
+    try:
+        api_key = st.secrets.get("OPENAI_API_KEY") if hasattr(st, "secrets") else None
+    except Exception:
+        api_key = None
     if not api_key:
         api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
@@ -135,6 +148,17 @@ def get_openai_client():
         st.stop()
     return OpenAI(api_key=api_key)
 
+def init_session_state():
+    if "page" not in st.session_state:
+        st.session_state.page = "analysis"
+    if "resume_context" not in st.session_state:
+        st.session_state.resume_context = ""
+    if "jd_context" not in st.session_state:
+        st.session_state.jd_context = ""
+    if "chat_history" not in st.session_state:
+        st.session_state.chat_history = []
+    if "interview_model" not in st.session_state:
+        st.session_state.interview_model = "gpt-5-mini"
 
 def parse_sections(text: str):
     """Return ({lookup_key: content}, [(raw_title, lookup_key), ...])."""
@@ -215,58 +239,132 @@ def render_card(raw_title: str, lookup_key: str, content: str):
 # ── Page ──────────────────────────────────────────────────────────────────────
 st.set_page_config(page_title="AI Career Mentor — Meridian", layout="wide")
 st.markdown(MERIDIAN_CSS, unsafe_allow_html=True)
+init_session_state()
 
 with st.sidebar:
     st.markdown("**Meridian**")
-    st.page_link("app.py",           label="Home",             icon="🏠")
+    st.page_link("app.py", label="Home", icon="🏠")
     st.page_link("pages/roadmap.py", label="Learning Roadmap", icon="📚")
 
-st.title("AI Career Mentor")
-st.caption("Paste a resume and a job description — get a match score, skill gaps, and interview prep.")
+if st.session_state.page == "analysis":
+    st.title("AI Career Mentor")
+    st.caption("Paste a resume and a job description — get a match score, skill gaps, and interview prep.")
 
-model_label = st.sidebar.selectbox(
-    "Model",
-    options=list(MODELS.keys()),
-    index=list(MODELS.keys()).index(DEFAULT_MODEL_LABEL),
-)
-selected_model, selected_price = MODELS[model_label]
-st.sidebar.caption(f"`{selected_model}` — {selected_price}")
+    model_label = st.sidebar.selectbox(
+        "Model",
+        options=list(MODELS.keys()),
+        index=list(MODELS.keys()).index(DEFAULT_MODEL_LABEL),
+    )
+    selected_model, selected_price = MODELS[model_label]
+    st.sidebar.caption(f"`{selected_model}` — {selected_price}")
 
-col1, col2 = st.columns(2)
-with col1:
-    resume = st.text_area("Resume", value=SAMPLE_RESUME, height=380)
-with col2:
-    jd = st.text_area("Job Description", value=SAMPLE_JD, height=380)
+    col1, col2 = st.columns(2)
+    with col1:
+        resume = st.text_area("Resume", value=SAMPLE_RESUME, height=380)
+    with col2:
+        jd = st.text_area("Job Description", value=SAMPLE_JD, height=380)
 
-if st.button("Analyze", type="primary"):
-    if not resume.strip() or not jd.strip():
-        st.warning("Please provide both a resume and a job description.")
-    else:
-        with st.spinner("Analyzing…"):
-            try:
-                client = get_openai_client()
-                response = client.chat.completions.create(
-                    model=selected_model,
-                    messages=[
-                        {"role": "system", "content": SYSTEM_PROMPT},
-                        {"role": "user",   "content": f"Resume:\n{resume}\n\nJob Description:\n{jd}"},
-                    ],
-                    reasoning_effort="low",
-                    max_completion_tokens=1500,
-                )
-                raw = response.choices[0].message.content
-                sections, order = parse_sections(raw)
-                gaps = extract_gaps(sections)
-                st.session_state.results = {"raw": raw, "sections": sections, "order": order, "gaps": gaps}
-            except Exception as e:
-                st.error(f"OpenAI API error: {e}")
+    action_col1, action_col2 = st.columns(2)
+    with action_col1:
+        analyze_clicked = st.button("Analyze", type="primary")
+    with action_col2:
+        interview_clicked = st.button("Start Mock Interview")
 
-if "results" in st.session_state:
-    r = st.session_state.results
-    for raw_title, lookup_key in r["order"]:
-        render_card(raw_title, lookup_key, r["sections"].get(lookup_key, ""))
+    if interview_clicked:
+        if not resume.strip() or not jd.strip():
+            st.warning("Please provide both a resume and a job description to start the mock interview.")
+        else:
+            st.session_state.page = "interview"
+            st.session_state.resume_context = resume.strip()
+            st.session_state.jd_context = jd.strip()
+            st.session_state.interview_model = selected_model
+            st.session_state.chat_history = []
+            st.rerun()
 
-    gaps = r.get("gaps", [])
-    if gaps:
-        st.markdown("---")
-        st.page_link("pages/roadmap.py", label="Build a 4-week plan to close these gaps →", icon="📚")
+    if analyze_clicked:
+        if not resume.strip() or not jd.strip():
+            st.warning("Please provide both a resume and a job description.")
+        else:
+            with st.spinner("Analyzing…"):
+                try:
+                    client = get_openai_client()
+                    response = client.chat.completions.create(
+                        model=selected_model,
+                        messages=[
+                            {"role": "system", "content": SYSTEM_PROMPT},
+                            {"role": "user", "content": f"Resume:\n{resume}\n\nJob Description:\n{jd}"},
+                        ],
+                        reasoning_effort="low",
+                        max_completion_tokens=1500,
+                    )
+                    raw = response.choices[0].message.content
+                    sections, order = parse_sections(raw)
+                    gaps = extract_gaps(sections)
+                    st.session_state.results = {"raw": raw, "sections": sections, "order": order, "gaps": gaps}
+                except Exception as e:
+                    st.error(f"OpenAI API error: {e}")
+
+    if "results" in st.session_state:
+        r = st.session_state.results
+        for raw_title, lookup_key in r["order"]:
+            render_card(raw_title, lookup_key, r["sections"].get(lookup_key, ""))
+
+        gaps = r.get("gaps", [])
+        if gaps:
+            st.markdown("---")
+            st.page_link("pages/roadmap.py", label="Build a 4-week plan to close these gaps →", icon="📚")
+else:
+    st.title("Mock Interview")
+    st.caption("Answer each question and get a tailored follow-up based on your resume and job description.")
+
+    if st.button("Back to Analysis"):
+        st.session_state.page = "analysis"
+        st.rerun()
+
+    with st.expander("Resume context", expanded=False):
+        st.write(st.session_state.resume_context or "No resume provided.")
+    with st.expander("Job description context", expanded=False):
+        st.write(st.session_state.jd_context or "No job description provided.")
+
+    if not st.session_state.chat_history:
+        st.session_state.chat_history.append(
+            {
+                "role": "assistant",
+                "content": "Hi! Let's start with a quick overview. Can you summarize your recent work and the impact you had?",
+            }
+        )
+
+    for message in st.session_state.chat_history:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+
+    user_input = st.chat_input("Your answer")
+    if user_input:
+        st.session_state.chat_history.append({"role": "user", "content": user_input})
+        with st.chat_message("user"):
+            st.markdown(user_input)
+
+        with st.chat_message("assistant"):
+            with st.spinner("Thinking..."):
+                try:
+                    client = get_openai_client()
+                    response = client.chat.completions.create(
+                        model=st.session_state.interview_model,
+                        messages=[
+                            {
+                                "role": "system",
+                                "content": INTERVIEW_SYSTEM_PROMPT.format(
+                                    resume=st.session_state.resume_context,
+                                    job_description=st.session_state.jd_context,
+                                ),
+                            },
+                            *st.session_state.chat_history,
+                        ],
+                        reasoning_effort="low",
+                        max_completion_tokens=600,
+                    )
+                    reply = response.choices[0].message.content
+                    st.markdown(reply)
+                    st.session_state.chat_history.append({"role": "assistant", "content": reply})
+                except Exception as e:
+                    st.error(f"OpenAI API error: {e}")

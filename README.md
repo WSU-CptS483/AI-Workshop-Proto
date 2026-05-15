@@ -1,4 +1,4 @@
-# AI-Workshop-Proto
+# AI-Workshop-Proto(Meridian)
 Meridian is a career‑readiness toolkit that helps users understand how well their resume aligns with a target job, identifies skill gaps, and provides personalized upskilling and interview practice.
 
 

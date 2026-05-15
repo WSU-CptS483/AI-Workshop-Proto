@@ -45,6 +45,13 @@ Data Analytics Intern, City of Bellingham — Summer 2023
 SKILLS
 SQL (PostgreSQL, BigQuery), Python (pandas, matplotlib), Tableau, Excel, Git"""
 
+MODELS = {
+    "gpt-5-nano (cheapest, fastest)": ("gpt-5-nano", "$0.05 / $0.40 per 1M tokens"),
+    "gpt-5-mini (default, balanced)": ("gpt-5-mini", "$0.25 / $2.00 per 1M tokens"),
+    "gpt-5 (best quality)": ("gpt-5", "$1.25 / $10.00 per 1M tokens"),
+}
+DEFAULT_MODEL_LABEL = "gpt-5-mini (default, balanced)"
+
 SAMPLE_JD = """Data Engineer — Greenpath Analytics (Seattle, hybrid)
 
 We're hiring a Data Engineer to build the pipelines that power our analytics products. You'll own ingestion, transformation, and orchestration for a growing portfolio of B2B customers.
@@ -78,6 +85,14 @@ st.set_page_config(page_title="AI Career Mentor", layout="wide")
 st.title("AI Career Mentor")
 st.caption("Paste a resume and a job description — get a match score, skill gaps, and interview prep.")
 
+model_label = st.sidebar.selectbox(
+    "Model",
+    options=list(MODELS.keys()),
+    index=list(MODELS.keys()).index(DEFAULT_MODEL_LABEL),
+)
+selected_model, selected_price = MODELS[model_label]
+st.sidebar.caption(f"`{selected_model}` — {selected_price}")
+
 col1, col2 = st.columns(2)
 with col1:
     resume = st.text_area("Resume", value=SAMPLE_RESUME, height=380)
@@ -92,7 +107,7 @@ if st.button("Analyze", type="primary"):
             try:
                 client = get_openai_client()
                 response = client.chat.completions.create(
-                    model="gpt-5-mini",
+                    model=selected_model,
                     messages=[
                         {"role": "system", "content": SYSTEM_PROMPT},
                         {"role": "user", "content": f"Resume:\n{resume}\n\nJob Description:\n{jd}"},
